@@ -23,8 +23,21 @@ impl Default for JuggeApp {
             label: "Hello World!".to_owned(),
             value: 2.7,
             animation: Animation::new(vec![
-                Person::still(Point::new(0.02, 0.02), "LW"),
-                Person::still(Point::new(0.11, 0.56), "LB"),
+                Person::still(Point::new(0.02, 0.02), "LW", true),
+                Person::still(Point::new(0.11, 0.56), "LB", true),
+                Person::still(Point::new(0.50, 0.62), "CB", true),
+                Person::still(Point::new(0.50, 0.32), "PV", true),
+                Person::still(Point::new(0.89, 0.56), "RB", true),
+                Person::still(Point::new(0.98, 0.02), "RW", true),
+                // Defense
+                Person::still(Point::new(0.16, 0.15), "LW", false),
+                Person::still(Point::new(0.28, 0.28), "LB", false),
+                Person::still(Point::new(0.43, 0.32), "CB", false),
+                Person::still(Point::new(0.57, 0.32), "PV", false),
+                Person::still(Point::new(0.72, 0.28), "RB", false),
+                Person::still(Point::new(0.84, 0.15), "RW", false),
+                // Ball
+                Person::still(Point::new(0.50, 0.65), "", false),
             ]),
         }
     }

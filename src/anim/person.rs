@@ -9,6 +9,13 @@ use super::util::{bez_at_t, get_screen_coords, screen_d_to_frac};
 pub type Point = Pos2;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum PlayerType {
+    Attacking,
+    Defending,
+    Ball,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum Movement {
     None(Point),
     Bezier([Point; 4]),
@@ -20,10 +27,11 @@ pub struct Person {
     pub movement: Movement,
     pub label: String,
     pub active: bool,
+    pub attacking: bool,
 }
 
 impl Person {
-    pub fn new(movement: Movement, label: &str) -> Self {
+    pub fn new(movement: Movement, label: &str, attacking: bool) -> Self {
         static COUNTER: AtomicUsize = AtomicUsize::new(0);
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
         let ids = [
@@ -37,32 +45,54 @@ impl Person {
             movement,
             label: label.to_string(),
             active: false,
+            attacking,
         }
     }
 
-    pub fn still(pt: Point, label: &str) -> Self {
+    pub fn still(pt: Point, label: &str, attacking: bool) -> Self {
         let movement = Movement::None(pt);
-        Self::new(movement, label)
+        Self::new(movement, label, attacking)
     }
 
     #[allow(dead_code)]
-    pub fn moving(pts: [Point; 4], label: &str) -> Self {
+    pub fn moving(pts: [Point; 4], label: &str, attacking: bool) -> Self {
         let movement = Movement::Bezier(pts);
-        Self::new(movement, label)
+        Self::new(movement, label, attacking)
     }
 
     #[allow(dead_code)]
-    pub fn from_prev(prev: [Point; 4], label: &str) -> Self {
-        let prev_mvmnt = prev[3] - prev[0];
-        let prev_speed = prev[3] - prev[2];
-        let prev_last_speed = prev[3] - prev[1];
-        let pts = [
-            prev[3],
-            prev[3] + prev_speed,
-            prev[3] + prev_last_speed,
-            prev[3] + prev_mvmnt,
-        ];
-        Self::moving(pts, label)
+    pub fn from_prev(prev: Self) -> Self {
+        match prev.movement {
+            Movement::Bezier(pts) => {
+                let prev_mvmnt = pts[3] - pts[0];
+                let prev_speed = pts[3] - pts[2];
+                let prev_last_speed = pts[3] - pts[1];
+                let pts = [
+                    pts[3],
+                    pts[3] + prev_speed,
+                    pts[3] + prev_last_speed,
+                    pts[3] + prev_mvmnt,
+                ];
+                Self::moving(pts, &prev.label, prev.attacking)
+            }
+            Movement::None(pt) => Self::still(pt, &prev.label, prev.attacking),
+        }
+    }
+
+    fn get_color(&self) -> Color32 {
+        if self.attacking {
+            if self.active {
+                Color32::DARK_RED
+            } else {
+                Color32::RED
+            }
+        } else {
+            if self.active {
+                Color32::DARK_BLUE
+            } else {
+                Color32::BLUE
+            }
+        }
     }
 
     pub fn display(&mut self, ui: &mut Ui, rect: Rect) -> bool {
@@ -130,11 +160,7 @@ impl Person {
             }
         }
 
-        let col = if self.active {
-            Color32::DARK_RED
-        } else {
-            Color32::RED
-        };
+        let col = self.get_color();
 
         // Draw main dot
         ui.painter()
@@ -178,11 +204,7 @@ impl Person {
             }
         }
 
-        let col = if self.active {
-            Color32::DARK_RED
-        } else {
-            Color32::RED
-        };
+        let col = self.get_color();
 
         // Draw
         ui.painter()
