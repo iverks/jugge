@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use egui::{epaint::CubicBezierShape, Color32, Rect, Stroke, Vec2};
 
 use super::person::Point;
@@ -65,4 +68,9 @@ pub fn bez_at_t(pts: [Point; 4], t: f32) -> Point {
         + 3.0 * (1.0 - t).powi(2) * t * pts[1].to_vec2()
         + 3.0 * (1.0 - t) * t.powi(2) * pts[2].to_vec2()
         + t.powi(3) * pts[3].to_vec2()
+}
+
+pub fn generate_id() -> usize {
+    static COUNTER: AtomicUsize = AtomicUsize::new(0);
+    COUNTER.fetch_add(1, Ordering::Relaxed)
 }

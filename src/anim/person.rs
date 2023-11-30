@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use egui::{
     epaint::CubicBezierShape, Align2, Color32, FontId, Id, Pos2, Rect, Sense, Stroke, Ui, Vec2,
 };
@@ -15,7 +17,9 @@ pub struct Person {
 }
 
 impl Person {
-    pub fn new(id: i32, pts: [Point; 4], label: &str) -> Self {
+    pub fn new(pts: [Point; 4], label: &str) -> Self {
+        static COUNTER: AtomicUsize = AtomicUsize::new(0);
+        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
         let ids = [
             Id::new(format!("{id} {label} 1")),
             Id::new(format!("{id} {label} 2")),
@@ -30,7 +34,8 @@ impl Person {
         }
     }
 
-    pub fn from_prev(id: i32, prev: [Point; 4], label: &str) -> Self {
+    #[allow(dead_code)]
+    pub fn from_prev(prev: [Point; 4], label: &str) -> Self {
         let prev_mvmnt = prev[3] - prev[0];
         let prev_speed = prev[3] - prev[2];
         let prev_last_speed = prev[3] - prev[1];
@@ -40,7 +45,7 @@ impl Person {
             prev[3] + prev_last_speed,
             prev[3] + prev_mvmnt,
         ];
-        Self::new(id, pts, label)
+        Self::new(pts, label)
     }
 
     pub fn display(&mut self, ui: &mut Ui, rect: Rect) -> bool {
@@ -132,8 +137,8 @@ impl Person {
         };
 
         let mut points = [Point::ZERO; 4];
-        for idx in 0..self.pts.len() {
-            points[idx] = get_screen_coords(self.pts[idx], rect);
+        for (screen_pt, frac_pt) in points.iter_mut().zip(self.pts.iter()) {
+            *screen_pt = get_screen_coords(*frac_pt, rect);
         }
 
         let bez = CubicBezierShape {

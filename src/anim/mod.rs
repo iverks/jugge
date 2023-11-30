@@ -28,7 +28,7 @@ impl Animation {
             y: a_width,
         };
 
-        let (rect, mut response) = ui.allocate_exact_size(desired_size, egui::Sense::hover());
+        let (rect, _response) = ui.allocate_exact_size(desired_size, egui::Sense::hover());
 
         ui.label(format!(
             "x {} {}, y {} {}",

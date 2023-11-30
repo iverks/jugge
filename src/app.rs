@@ -24,7 +24,6 @@ impl Default for JuggeApp {
             value: 2.7,
             animation: Animation::new(vec![
                 Person::new(
-                    0,
                     [
                         Point::new(0.02, 0.02),
                         Point::new(0.1, 0.2),
@@ -34,7 +33,6 @@ impl Default for JuggeApp {
                     "LW",
                 ),
                 Person::new(
-                    0,
                     [
                         Point::new(0.11, 0.56),
                         Point::new(0.1, 0.2),
