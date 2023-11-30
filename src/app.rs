@@ -23,24 +23,8 @@ impl Default for JuggeApp {
             label: "Hello World!".to_owned(),
             value: 2.7,
             animation: Animation::new(vec![
-                Person::new(
-                    [
-                        Point::new(0.02, 0.02),
-                        Point::new(0.1, 0.2),
-                        Point::new(0.2, 0.1),
-                        Point::new(0.2, 0.2),
-                    ],
-                    "LW",
-                ),
-                Person::new(
-                    [
-                        Point::new(0.11, 0.56),
-                        Point::new(0.1, 0.2),
-                        Point::new(0.2, 0.1),
-                        Point::new(0.2, 0.2),
-                    ],
-                    "LB",
-                ),
+                Person::still(Point::new(0.02, 0.02), "LW"),
+                Person::still(Point::new(0.11, 0.56), "LB"),
             ]),
         }
     }

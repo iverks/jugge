@@ -9,15 +9,21 @@ use super::util::{bez_at_t, get_screen_coords, screen_d_to_frac};
 pub type Point = Pos2;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum Movement {
+    None(Point),
+    Bezier([Point; 4]),
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Person {
     pub ids: [Id; 4],
-    pub pts: [Point; 4],
+    pub movement: Movement,
     pub label: String,
     pub active: bool,
 }
 
 impl Person {
-    pub fn new(pts: [Point; 4], label: &str) -> Self {
+    pub fn new(movement: Movement, label: &str) -> Self {
         static COUNTER: AtomicUsize = AtomicUsize::new(0);
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
         let ids = [
@@ -28,10 +34,21 @@ impl Person {
         ];
         Self {
             ids,
-            pts,
+            movement,
             label: label.to_string(),
             active: false,
         }
+    }
+
+    pub fn still(pt: Point, label: &str) -> Self {
+        let movement = Movement::None(pt);
+        Self::new(movement, label)
+    }
+
+    #[allow(dead_code)]
+    pub fn moving(pts: [Point; 4], label: &str) -> Self {
+        let movement = Movement::Bezier(pts);
+        Self::new(movement, label)
     }
 
     #[allow(dead_code)]
@@ -45,21 +62,20 @@ impl Person {
             prev[3] + prev_last_speed,
             prev[3] + prev_mvmnt,
         ];
-        Self::new(pts, label)
+        Self::moving(pts, label)
     }
 
     pub fn display(&mut self, ui: &mut Ui, rect: Rect) -> bool {
         let radius: f32 = 10.0;
-        let screen_pt = get_screen_coords(self.pts[0], rect);
+        let screen_pt = match self.movement {
+            Movement::Bezier(pts) => get_screen_coords(pts[0], rect),
+            Movement::None(pt) => get_screen_coords(pt, rect),
+        };
         let mut activated = false;
 
         // Check for clicks
         let bounding_rect = Rect::from_center_size(screen_pt, Vec2::splat(radius * 1.7));
-        let i = if self.active {
-            ui.interact(bounding_rect, self.ids[0], Sense::drag())
-        } else {
-            ui.interact(bounding_rect, self.ids[0], Sense::click())
-        };
+        let i = ui.interact(bounding_rect, self.ids[0], Sense::click_and_drag());
 
         let draw_radius = if i.dragged() {
             ui.ctx().animate_value_with_time(i.id, 13.0, 0.1)
@@ -69,10 +85,17 @@ impl Person {
             ui.ctx().animate_value_with_time(i.id, radius, 0.1)
         };
 
-        if i.dragged() {
+        if i.dragged() && self.active {
             let d = i.drag_delta();
-            for idx in 0..4 {
-                self.pts[idx] += screen_d_to_frac(d, rect);
+            match &mut self.movement {
+                Movement::Bezier(pts) => {
+                    for pt in pts.iter_mut() {
+                        *pt += screen_d_to_frac(d, rect);
+                    }
+                }
+                Movement::None(pt) => {
+                    *pt += screen_d_to_frac(d, rect);
+                }
             }
         }
 
@@ -80,17 +103,42 @@ impl Person {
             activated = true;
         }
 
-        // Edit ui if this is the active dot
-        if self.active {
+        if i.double_clicked() {
+            activated = true;
+            let root = match &self.movement {
+                Movement::Bezier(pts) => pts[0],
+                Movement::None(pt) => *pt,
+            };
+            match self.movement {
+                Movement::Bezier(_) => self.movement = Movement::None(root),
+                Movement::None(_) => {
+                    self.movement = Movement::Bezier([
+                        root,
+                        root + Vec2 { x: 0.05, y: 0.0 },
+                        root + Vec2 { x: 0.1, y: 0.05 },
+                        root + Vec2 { x: 0.1, y: 0.1 },
+                    ])
+                }
+            }
+        }
+
+        // Edit ui if we have movement
+        if let Movement::Bezier(_) = self.movement {
             self.draw_lines(ui, rect);
             for dot_idx in 1..4 {
                 self.draw_dot(ui, rect, dot_idx);
             }
         }
 
+        let col = if self.active {
+            Color32::DARK_RED
+        } else {
+            Color32::RED
+        };
+
         // Draw main dot
         ui.painter()
-            .circle(screen_pt, draw_radius, Color32::RED, Stroke::NONE);
+            .circle(screen_pt, draw_radius, col, Stroke::NONE);
         ui.painter().text(
             screen_pt,
             Align2::CENTER_CENTER,
@@ -104,7 +152,10 @@ impl Person {
 
     fn draw_dot(&mut self, ui: &mut Ui, rect: Rect, dot_idx: usize) {
         let radius: f32 = 5.0;
-        let screen_pt = get_screen_coords(self.pts[dot_idx], rect);
+        let screen_pt = match self.movement {
+            Movement::Bezier(pts) => get_screen_coords(pts[dot_idx], rect),
+            Movement::None(_) => panic!("Dots should not be drawn if we dont have bezier"),
+        };
 
         // Check for clicks
         let bounding_rect = Rect::from_center_size(screen_pt, Vec2::splat(radius * 1.7));
@@ -120,14 +171,22 @@ impl Person {
         };
 
         // Move dot
-        if i.dragged() {
+        if i.dragged() && self.active {
             let d = i.drag_delta();
-            self.pts[dot_idx] += screen_d_to_frac(d, rect);
+            if let Movement::Bezier(pts) = &mut self.movement {
+                pts[dot_idx] += screen_d_to_frac(d, rect);
+            }
         }
+
+        let col = if self.active {
+            Color32::DARK_RED
+        } else {
+            Color32::RED
+        };
 
         // Draw
         ui.painter()
-            .circle(screen_pt, draw_radius, Color32::RED, Stroke::NONE);
+            .circle(screen_pt, draw_radius, col, Stroke::NONE);
     }
 
     fn draw_lines(&mut self, ui: &mut Ui, rect: Rect) {
@@ -137,8 +196,10 @@ impl Person {
         };
 
         let mut points = [Point::ZERO; 4];
-        for (screen_pt, frac_pt) in points.iter_mut().zip(self.pts.iter()) {
-            *screen_pt = get_screen_coords(*frac_pt, rect);
+        if let Movement::Bezier(pts) = &mut self.movement {
+            for (screen_pt, frac_pt) in points.iter_mut().zip(pts.iter()) {
+                *screen_pt = get_screen_coords(*frac_pt, rect);
+            }
         }
 
         let bez = CubicBezierShape {
@@ -159,10 +220,14 @@ impl Person {
     pub fn animate(&self, ui: &mut Ui, rect: Rect, t: f32) {
         let radius: f32 = 10.0;
 
-        let pt = bez_at_t(self.pts, t);
+        let screen_pt = match &self.movement {
+            Movement::Bezier(pts) => {
+                let pt = bez_at_t(*pts, t);
 
-        let screen_pt = get_screen_coords(pt, rect);
-
+                get_screen_coords(pt, rect)
+            }
+            Movement::None(pt) => *pt,
+        };
         // Draw main dot
         ui.painter()
             .circle(screen_pt, radius, Color32::RED, Stroke::NONE);
