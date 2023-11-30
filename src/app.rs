@@ -1,6 +1,6 @@
 use egui::Id;
 
-use crate::anim::person::{Person, Point};
+use crate::anim::person::{Person, PlayerType, Point};
 use crate::anim::Animation;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -23,21 +23,21 @@ impl Default for JuggeApp {
             label: "Hello World!".to_owned(),
             value: 2.7,
             animation: Animation::new(vec![
-                Person::still(Point::new(0.02, 0.02), "LW", true),
-                Person::still(Point::new(0.11, 0.56), "LB", true),
-                Person::still(Point::new(0.50, 0.62), "CB", true),
-                Person::still(Point::new(0.50, 0.32), "PV", true),
-                Person::still(Point::new(0.89, 0.56), "RB", true),
-                Person::still(Point::new(0.98, 0.02), "RW", true),
+                Person::still(Point::new(0.02, 0.02), "LW", PlayerType::Attacking),
+                Person::still(Point::new(0.11, 0.56), "LB", PlayerType::Attacking),
+                Person::still(Point::new(0.50, 0.62), "CB", PlayerType::Attacking),
+                Person::still(Point::new(0.50, 0.32), "PV", PlayerType::Attacking),
+                Person::still(Point::new(0.89, 0.56), "RB", PlayerType::Attacking),
+                Person::still(Point::new(0.98, 0.02), "RW", PlayerType::Attacking),
                 // Defense
-                Person::still(Point::new(0.16, 0.15), "LW", false),
-                Person::still(Point::new(0.28, 0.28), "LB", false),
-                Person::still(Point::new(0.43, 0.32), "CB", false),
-                Person::still(Point::new(0.57, 0.32), "PV", false),
-                Person::still(Point::new(0.72, 0.28), "RB", false),
-                Person::still(Point::new(0.84, 0.15), "RW", false),
+                Person::still(Point::new(0.16, 0.15), "LW", PlayerType::Defending),
+                Person::still(Point::new(0.28, 0.28), "LB", PlayerType::Defending),
+                Person::still(Point::new(0.43, 0.32), "CB", PlayerType::Defending),
+                Person::still(Point::new(0.57, 0.32), "PV", PlayerType::Defending),
+                Person::still(Point::new(0.72, 0.28), "RB", PlayerType::Defending),
+                Person::still(Point::new(0.84, 0.15), "RW", PlayerType::Defending),
                 // Ball
-                Person::still(Point::new(0.50, 0.65), "", false),
+                Person::still(Point::new(0.50, 0.65), "", PlayerType::Ball),
             ]),
         }
     }

@@ -27,11 +27,11 @@ pub struct Person {
     pub movement: Movement,
     pub label: String,
     pub active: bool,
-    pub attacking: bool,
+    pub p_type: PlayerType,
 }
 
 impl Person {
-    pub fn new(movement: Movement, label: &str, attacking: bool) -> Self {
+    pub fn new(movement: Movement, label: &str, p_type: PlayerType) -> Self {
         static COUNTER: AtomicUsize = AtomicUsize::new(0);
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
         let ids = [
@@ -45,19 +45,19 @@ impl Person {
             movement,
             label: label.to_string(),
             active: false,
-            attacking,
+            p_type,
         }
     }
 
-    pub fn still(pt: Point, label: &str, attacking: bool) -> Self {
+    pub fn still(pt: Point, label: &str, p_type: PlayerType) -> Self {
         let movement = Movement::None(pt);
-        Self::new(movement, label, attacking)
+        Self::new(movement, label, p_type)
     }
 
     #[allow(dead_code)]
-    pub fn moving(pts: [Point; 4], label: &str, attacking: bool) -> Self {
+    pub fn moving(pts: [Point; 4], label: &str, p_type: PlayerType) -> Self {
         let movement = Movement::Bezier(pts);
-        Self::new(movement, label, attacking)
+        Self::new(movement, label, p_type)
     }
 
     #[allow(dead_code)]
@@ -73,24 +73,34 @@ impl Person {
                     pts[3] + prev_last_speed,
                     pts[3] + prev_mvmnt,
                 ];
-                Self::moving(pts, &prev.label, prev.attacking)
+                Self::moving(pts, &prev.label, prev.p_type)
             }
-            Movement::None(pt) => Self::still(pt, &prev.label, prev.attacking),
+            Movement::None(pt) => Self::still(pt, &prev.label, prev.p_type),
         }
     }
 
     fn get_color(&self) -> Color32 {
-        if self.attacking {
-            if self.active {
-                Color32::DARK_RED
-            } else {
-                Color32::RED
+        match self.p_type {
+            PlayerType::Attacking => {
+                if self.active {
+                    Color32::DARK_RED
+                } else {
+                    Color32::RED
+                }
             }
-        } else {
-            if self.active {
-                Color32::DARK_BLUE
-            } else {
-                Color32::BLUE
+            PlayerType::Defending => {
+                if self.active {
+                    Color32::DARK_BLUE
+                } else {
+                    Color32::BLUE
+                }
+            }
+            _ => {
+                if self.active {
+                    Color32::YELLOW
+                } else {
+                    Color32::BLACK
+                }
             }
         }
     }
