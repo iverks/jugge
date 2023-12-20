@@ -8,7 +8,7 @@ use super::util::{bez_at_t, get_screen_coords, screen_d_to_frac};
 
 pub type Point = Pos2;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub enum PlayerType {
     Attacking,
     Defending,
@@ -26,7 +26,6 @@ pub struct Person {
     pub ids: [Id; 4],
     pub movement: Movement,
     pub label: String,
-    pub active: bool,
     pub p_type: PlayerType,
 }
 
@@ -44,7 +43,6 @@ impl Person {
             ids,
             movement,
             label: label.to_string(),
-            active: false,
             p_type,
         }
     }
@@ -81,37 +79,18 @@ impl Person {
 
     fn get_color(&self) -> Color32 {
         match self.p_type {
-            PlayerType::Attacking => {
-                if self.active {
-                    Color32::DARK_RED
-                } else {
-                    Color32::RED
-                }
-            }
-            PlayerType::Defending => {
-                if self.active {
-                    Color32::DARK_BLUE
-                } else {
-                    Color32::BLUE
-                }
-            }
-            _ => {
-                if self.active {
-                    Color32::YELLOW
-                } else {
-                    Color32::BLACK
-                }
-            }
+            PlayerType::Attacking => Color32::RED,
+            PlayerType::Defending => Color32::BLUE,
+            _ => Color32::YELLOW,
         }
     }
 
-    pub fn display(&mut self, ui: &mut Ui, rect: Rect) -> bool {
+    pub fn display(&mut self, ui: &mut Ui, rect: Rect) {
         let radius: f32 = 10.0;
         let screen_pt = match self.movement {
             Movement::Bezier(pts) => get_screen_coords(pts[0], rect),
             Movement::None(pt) => get_screen_coords(pt, rect),
         };
-        let mut activated = false;
 
         // Check for clicks
         let bounding_rect = Rect::from_center_size(screen_pt, Vec2::splat(radius * 1.7));
@@ -125,7 +104,7 @@ impl Person {
             ui.ctx().animate_value_with_time(i.id, radius, 0.1)
         };
 
-        if i.dragged() && self.active {
+        if i.dragged() {
             let d = i.drag_delta();
             match &mut self.movement {
                 Movement::Bezier(pts) => {
@@ -139,12 +118,7 @@ impl Person {
             }
         }
 
-        if i.clicked() {
-            activated = true;
-        }
-
         if i.double_clicked() {
-            activated = true;
             let root = match &self.movement {
                 Movement::Bezier(pts) => pts[0],
                 Movement::None(pt) => *pt,
@@ -182,8 +156,6 @@ impl Person {
             FontId::default(),
             Color32::WHITE,
         );
-
-        activated
     }
 
     fn draw_dot(&mut self, ui: &mut Ui, rect: Rect, dot_idx: usize) {
@@ -207,10 +179,13 @@ impl Person {
         };
 
         // Move dot
-        if i.dragged() && self.active {
+        if i.dragged() {
             let d = i.drag_delta();
             if let Movement::Bezier(pts) = &mut self.movement {
                 pts[dot_idx] += screen_d_to_frac(d, rect);
+                if dot_idx == 3 {
+                    pts[2] += screen_d_to_frac(d, rect);
+                }
             }
         }
 
@@ -252,17 +227,18 @@ impl Person {
     pub fn animate(&self, ui: &mut Ui, rect: Rect, t: f32) {
         let radius: f32 = 10.0;
 
-        let screen_pt = match &self.movement {
+        let screen_pt = match self.movement {
             Movement::Bezier(pts) => {
-                let pt = bez_at_t(*pts, t);
+                let pt = bez_at_t(pts, t);
 
                 get_screen_coords(pt, rect)
             }
-            Movement::None(pt) => *pt,
+            Movement::None(pt) => get_screen_coords(pt, rect),
         };
+
+        let col = self.get_color();
         // Draw main dot
-        ui.painter()
-            .circle(screen_pt, radius, Color32::RED, Stroke::NONE);
+        ui.painter().circle(screen_pt, radius, col, Stroke::NONE);
         ui.painter().text(
             screen_pt,
             Align2::CENTER_CENTER,

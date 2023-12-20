@@ -7,21 +7,16 @@ use crate::anim::Animation;
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct JuggeApp {
-    // Example stuff:
-    label: String,
     #[serde(skip)] // opted out for debug reasons
     animation: Animation,
 
-    #[serde(skip)] // This how you opt-out of serialization of a field
-    value: f32,
+    #[serde(skip)] // opted out on purpose
+    is_animating: bool,
 }
 
 impl Default for JuggeApp {
     fn default() -> Self {
         Self {
-            // Example stuff:
-            label: "Hello World!".to_owned(),
-            value: 2.7,
             animation: Animation::new(vec![
                 Person::still(Point::new(0.02, 0.02), "LW", PlayerType::Attacking),
                 Person::still(Point::new(0.11, 0.56), "LB", PlayerType::Attacking),
@@ -39,6 +34,7 @@ impl Default for JuggeApp {
                 // Ball
                 Person::still(Point::new(0.50, 0.65), "", PlayerType::Ball),
             ]),
+            is_animating: false,
         }
     }
 }
@@ -94,40 +90,47 @@ impl eframe::App for JuggeApp {
             ui.heading("Handball move editor");
 
             let numsteps = self.animation.frames.len() as f32;
-            let mut animation_time =
-                ui.ctx()
-                    .animate_value_with_time(Id::new("main animation"), numsteps, numsteps);
+            let mut animation_time = ui.ctx().animate_value_with_time(
+                Id::new("main animation"),
+                numsteps - f32::EPSILON,
+                numsteps,
+            );
 
             ui.horizontal(|ui| {
                 if ui.button("Animate").clicked() {
                     // Move time to start
+                    self.is_animating = true;
                     animation_time =
                         ui.ctx()
                             .animate_value_with_time(Id::new("main animation"), 0.0, 0.0);
                 }
                 if ui.button("Reset").clicked() {
                     // Move time to end
-                    animation_time =
-                        ui.ctx()
-                            .animate_value_with_time(Id::new("main animation"), numsteps, 0.0);
+                    self.is_animating = false;
                 }
             });
 
             ui.separator();
 
+            let num_steps = self.animation.frames.len();
             ui.horizontal(|ui| {
-                if ui.button("1").clicked() {
-                    println!("1");
+                for i in 1..=num_steps {
+                    let step_name = i.to_string();
+                    if ui.button(step_name).clicked() {
+                        self.animation.cur_frame = i - 1;
+                        self.is_animating = false;
+                    }
                 }
-                if ui.button("Next step").clicked() {
-                    println!("nx");
+                if ui.button("Add step").clicked() {
+                    self.animation.add_frame();
+                    self.is_animating = false;
                 }
             });
 
             ui.separator();
 
             // Display animation or display editing
-            if animation_time < numsteps {
+            if self.is_animating {
                 self.animation.display(ui, Some(animation_time));
             } else {
                 self.animation.display(ui, None);

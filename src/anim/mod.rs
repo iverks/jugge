@@ -4,7 +4,10 @@ pub mod util;
 
 use egui::{Ui, Vec2};
 
-use self::{field::draw_field, person::Person};
+use self::{
+    field::draw_field,
+    person::{Movement, Person},
+};
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Animation {
@@ -18,6 +21,25 @@ impl Animation {
             frames: vec![frame],
             cur_frame: 0,
         }
+    }
+
+    pub fn add_frame(&mut self) {
+        let mut new_frame = Vec::new();
+
+        for player in self.frames[self.frames.len() - 1].iter() {
+            let pos = match player.movement {
+                Movement::None(pos) => pos,
+                Movement::Bezier(pts) => pts[3],
+            };
+            new_frame.push(Person::new(
+                Movement::None(pos),
+                &player.label,
+                player.p_type,
+            ));
+        }
+
+        self.frames.push(new_frame);
+        self.cur_frame = self.frames.len() - 1;
     }
 
     pub fn display(&mut self, ui: &mut Ui, animation_time: Option<f32>) {
@@ -45,13 +67,7 @@ impl Animation {
                 None => {
                     for i in 0..self.frames[self.cur_frame].len() {
                         let p = &mut self.frames[self.cur_frame][i];
-                        let was_clicked = p.display(ui, rect);
-                        if was_clicked {
-                            for j in 0..self.frames[self.cur_frame].len() {
-                                self.frames[self.cur_frame][j].active = false;
-                            }
-                            self.frames[self.cur_frame][i].active = true;
-                        }
+                        p.display(ui, rect);
                     }
                 }
                 Some(time) => {
